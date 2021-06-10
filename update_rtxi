@@ -1,0 +1,4 @@
+#! /bin/sh
+./configure --enable-xenomai --enable-analogy --disable-debug
+make
+make install

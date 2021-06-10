@@ -1,0 +1,16 @@
+V46_I:
+	// Zap Em? (output)
+	if (correlation_coefficient >= corr_coeff_trig && deadCounter == 0) {
+	  isInteresting = true; //true;
+	  //Template_found = true;
+	  //int v_rand = rand() % 2;
+	  //cout<<"rand: "<<v_rand<<endl;
+	  if((rand() % 100)>95){
+	    zapEm = true;
+	  }
+
+	}
+
+
+We want to output noise with proba 1/2. Fot the cases when noise has to be output, there is no problem i.e. no need for rand()%100 check. However for the case when no noise has to be output, we have to count how much on average the corr_coeff is above the threshold corr_coeff whan the syllable of interest is sung. For bird I_09_10_2019 is is roughly 10-12 times.
+So (x/100)*12=0.5 i.e. x ~ 4. The valid numers for rand()%100 are thus 99 98 97 96

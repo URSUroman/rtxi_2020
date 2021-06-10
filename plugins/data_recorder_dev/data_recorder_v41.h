@@ -148,9 +148,11 @@ private:
 
     pthread_t thread;
     AtomicFifo fifo;
+    AtomicFifo fifo_song;
     data_token_t _token;
+    data_token_t _token_song; //token to contain data read from fifo_song and to be written to txt file
     bool tokenRetrieved;
-    
+    bool tokenRetrieved_song; //tells if token was retrieved from fifo_song
     struct timespec sleep;
 
     struct file_t

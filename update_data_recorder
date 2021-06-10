@@ -1,0 +1,13 @@
+#! /bin/sh
+rm plugins/data_recorder/data_recorder.cpp
+rm plugins/data_recorder/data_recorder.h
+
+#cp plugins/data_recorder_dev/data_recorder_v47.cpp plugins/data_recorder/data_recorder.cpp
+#cp plugins/data_recorder_dev/data_recorder_v46_I.cpp plugins/data_recorder/data_recorder.cpp
+cp plugins/data_recorder_dev/data_recorder_v46.cpp plugins/data_recorder/data_recorder.cpp
+#cp plugins/data_recorder_dev/data_recorder_v462.cpp plugins/data_recorder/data_recorder.cpp
+
+#cp plugins/data_recorder_dev/data_recorder_v47.h plugins/data_recorder/data_recorder.h
+#cp plugins/data_recorder_dev/data_recorder_v46_I.h plugins/data_recorder/data_recorder.h
+cp plugins/data_recorder_dev/data_recorder_v46.h plugins/data_recorder/data_recorder.h
+#cp plugins/data_recorder_dev/data_recorder_v462.h plugins/data_recorder/data_recorder.h

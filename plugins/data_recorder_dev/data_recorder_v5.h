@@ -32,7 +32,6 @@
 #include <hdf5.h>
 #include <hdf5_hl.h>
 
-
 namespace DataRecorder
 {
 enum data_type_t
@@ -45,8 +44,6 @@ enum data_type_t
     ASYNC,
     DONE,
     PARAM,
-    _START,
-    _STOP,
 };
 
 struct data_token_t
@@ -103,7 +100,7 @@ private:
 public:
     Panel(QWidget *, size_t);
     ~Panel(void);
-			    
+
     void execute(void);
     void receiveEvent(const Event::Object *);
     void receiveEventRT(const Event::Object *);
@@ -150,7 +147,6 @@ private:
     AtomicFifo fifo;
     data_token_t _token;
     bool tokenRetrieved;
-    
     struct timespec sleep;
 
     struct file_t

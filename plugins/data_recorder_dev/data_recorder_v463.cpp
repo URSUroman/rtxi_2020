@@ -688,10 +688,10 @@ const int FREQ_LOW_CUT = 1000;		// in Hz. The lowest frequency considered.
 
 // Parameters: RMS
 const int RMS_PERIOD = 1000;		// in us
-const double RMS_THRESHOLD = 0.002;//0.02; //for rec Blue0 // for RTXI1: 0.01; //0.045 if ventilator out/working correctly and rms with 200 points; threshold to start recording
+const double RMS_THRESHOLD = 0.007;//0.15 if ventillator is on/working badly (big implant chamber) and trigger for saving is not rms of 200 pts but amplitude. 0.043 if ventillator is off/working well; 0.007 if rms^2 instead of rms of last 200 points and ventilator on/working badly. 0.001 if rms^2 instead of rms of last 200 points and ventilator off/working well 	//threshold to start recording
 const int MS_IN_RMS = 10;		// in ms, time length checked to start recording
 const int RMS_TERM_LEN = 200;		// in ms, time length checked to stop recording
-const double RMS_TERM_THRES = 0.002;//0.02; //for rec Blue0 // for RTXI1: 0.01; //0.05;//.85;	// in Volts, threshold to stop recording (if under, stops)
+const double RMS_TERM_THRES = 0.007;//0.05;//.85;	// in Volts, threshold to stop recording (if under, stops)
 
 // Parameters: FFT
 const int FFT_ARRAY_SIZE = 256; 	// Must be power of 2
@@ -703,15 +703,15 @@ const int RECORD_H5_SECS = 5;		// in s; Min Num Seconds/ Trial Recorded
 const int MAX_FILE_SECS = 25;		// in s; Max sec.s recorded, not including predata
 
 // Parameters: Spectrogram/ Template
-const char TEMP_FILE[45] = "Template.txt";//"I_16_02_2021_20k_100600_102600.txt";//"Seventh_Bird_20k_108900_110900.txt";//"Sixth_Bird_20k_128772_130772.txt";//"Sixth_Bird_20k_142786_144786.txt";//"Fifth_Bird_20k_64000_66000.txt"; //"Gris1Vert2_20k_70250_72250.txt";//"Gris1Vert2_20k_106700_108000.txt";//"Gris1Vert2_20k_62500_64500.txt";//"Second_bird_syl_a_1.txt";//"Template_2.txt"; //"LowerHalfTemp.Det";	// Template File (Raw Data)
+const char TEMP_FILE[45] = "I_20_05_2020_20k_124500_126500.txt";//"Seventh_Bird_20k_108900_110900.txt";//"Sixth_Bird_20k_128772_130772.txt";//"Sixth_Bird_20k_142786_144786.txt";//"Fifth_Bird_20k_64000_66000.txt"; //"Gris1Vert2_20k_70250_72250.txt";//"Gris1Vert2_20k_106700_108000.txt";//"Gris1Vert2_20k_62500_64500.txt";//"Second_bird_syl_a_1.txt";//"Template_2.txt"; //"LowerHalfTemp.Det";	// Template File (Raw Data)
 const int MS_IN_SPECT = 50; //Template_2 with 32 ms		// in ms
 const int SPECT_PERIOD = 1000;		// in us
 
 // Parameters: Trigger
-double corr_coeff_trig = 0.99;//0.72;//0.42;//0.62;// (for sixth bird);//0.6 for bird3//0.62//0.74; 0.54 for Fifth_bird		// Correlation to Template needed for Detection
+double corr_coeff_trig = 0.99;//0.62;// (for sixth bird);//0.6 for bird3//0.62//0.74; 0.54 for Fifth_bird		// Correlation to Template needed for Detection
 
 // Parameters: Output
-const int OUTPUT_LENGTH = 35; //32;		// in ms; output file length
+const int OUTPUT_LENGTH = 100; //32;		// in ms; output file length
 const char PLAYBACK_FILE[45] = "Noise.txt"; //"thisSyl"; // File for Feedback
 const int DEAD_TIME = 120;//50; 		// in ms. Default: OUTPUT_LENGTH + 20
 
@@ -793,10 +793,10 @@ ofstream file_to_write_fract_esc;
 ofstream file_to_write_corr;
 time_t current_time;//variable for time stamping the saved clean songs
 time_t current_time_clean_song;//variable to check the time for clean song recording. Each day from 12:00 to 14:00 clean songs are recorded
-string file_path = "../../Documents/Recordings/Song/Raw_Recordings/";//"../../Documents/Recordings/Song/";
-string file_path_flt = "../../Documents/Recordings/Song/Raw_Recordings_flt/";
-string file_path_means_thresholds = "../../Documents/Recordings/Song/Means_and_Thresholds/";
-string file_path_corr = "../../Documents/Recordings/Song/Raw_Recordings_corr/";
+string file_path = "../../Documents/Recordings/Song/Raw_Recordings_Impl/";//"../../Documents/Recordings/Song/";
+string file_path_flt = "../../Documents/Recordings/Song/Raw_Recordings_Impl_flt/";
+string file_path_means_thresholds = "../../Documents/Recordings/Song/Means_and_Thresholds_Impl/";
+string file_path_corr = "../../Documents/Recordings/Song/Raw_Recordings_Impl_corr/";
 string file_name;
 string file_name_flt;
 string file_name_means;
@@ -821,7 +821,7 @@ double max_corr_coef = 0;
 int Dt_ms = 2;
 int ms_counter = 0;
 int max_ms_counter = Dt_ms*20; //Roughly the number of samples in Dt_ms ms
-int min_dur_sil_ms = 3;
+int min_dur_sil_ms = 5;
 int min_dur_sil = 20*min_dur_sil_ms;
 int min_dur_sil_count = 0;
 int min_dur_syl_ms = 0;
@@ -845,25 +845,22 @@ double data_sqrd = 0;
 //********************************************
 //Amplitude threshold for syllable duration
 //********************************************
-double Amp_th = 7e-3;//1e-3 (for sixth bird) ;//5e-4(for fifth bird);//6e-4;//2.5e-3;//2e-5; Fifth Bird: 5e-4 
+double Amp_th = 6e-4;//1e-3 (for sixth bird) ;//5e-4(for fifth bird);//6e-4;//2.5e-3;//2e-5; Fifth Bird: 5e-4 
 double time_counter = 0;
 double pause_counter = 0;
-double prev_pause_counter=0;
 double dur_syl_counter = 0;
 //*******************************************
 //Threshold for syllable duration
 //*******************************************
-double treshold_fract_escape = 0.75;
+double treshold_fract_escape = 0.80;
 double treshold_fract_escape_low_limit = 0.1;
 double syl_th_duration = 10000;//corresponds to the nb of samples at 30303 Hz.
-double syl_and_gap_th_duration = 1500;//syllable and gap only;//3693(for sith bird syllable and gap);//3856; //3731; 849
-double prev_pause_duration_max=350;
-double prev_pause_duration_min=10;
+double syl_and_gap_th_duration = 2750;//syllable and gap only;//3693(for sith bird syllable and gap);//3856; //3731; 849
 const int Nb_syllables = 200;//200
 double syllables_durations[Nb_syllables+10] = {0};
 int syl_counter = 0;
 int syl_counter_no_CAF=0;
-int syl_counter_no_CAF_limit=1;//ideally we will gather 110 syllables during NO_CAF mode each day for off-line processing 
+int syl_counter_no_CAF_limit=110;//ideally we will gather 110 syllables during NO_CAF mode each day for off-line processing 
 const int Nb_thresholds = 1000;
 double syllable_thresholds_history[Nb_thresholds]={0};
 double syllable_mean_200_history[Nb_thresholds]={0};
@@ -875,7 +872,6 @@ double one_day_delay = 24*60*60;//24*60*60; //nb of seconds in one day
 double two_hours_delay = 2*60*60;
 double mean_syl_dur=0;
 double std_dev_syl_dur=0;
-double std_dev_syl_dur_fixd=50;
 
 
 enum States {INIT, FIRST_SYL, FIRST_PAUSE, MIN_SYL_DUR_END, MIN_SYL_DUR, MIN_PAUSE_DUR};
@@ -1031,7 +1027,7 @@ void Initialize()
 	last_time=(double)current_time_clean_song-24*60*60;//-60*60;
 
 	mean_syl_dur = syl_and_gap_th_duration;
-	std_dev_syl_dur = 50;
+	std_dev_syl_dur = 35;
 	
 	initialized = true;
 
@@ -1086,7 +1082,6 @@ void Command_Code(double dataCh1, double dataCh2)
 
 
         //Band pass filter with freq cutoffs 1000;8000
-	/*
         data_flt = 0;
 	if ((cBcounter >= (FILTER_SIZE_B-1))) {
 	  for (int i = 0; i != FILTER_SIZE_B; i++)
@@ -1103,9 +1098,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	}
         //circularBuffer_filtd[cBcounter] = filtered_point;
 	circularBuffer_bp_flt[cBcounter] = data_flt;
-	*/
-	
-	circularBuffer_bp_flt[cBcounter] = circularBuffer[0][cBcounter];
 
 
 	//Square the bp filtered signal
@@ -1161,7 +1153,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	case INIT:
 	    time_counter=min_dur_syl_count;//A portion of the syllable was already taken into consideration in the state MIN_SYL_DUR_END
 	    pause_counter=0;
-	    prev_pause_counter=0;
 	    dur_syl_counter = 0;
 	    //min_dur_syl_count=0;
 	    min_dur_sil_count=0;
@@ -1212,7 +1203,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	      STATE=FIRST_PAUSE;
 	      //cout<<STATE<<endl;
 	      dur_syl_counter = time_counter-min_dur_sil_count;//Substract the part of the pause that is already in the time_counter
-	      prev_pause_counter=pause_counter;
 	      pause_counter=min_dur_sil_count;
 	      min_dur_sil_count=0;
 	    }
@@ -1248,16 +1238,8 @@ void Command_Code(double dataCh1, double dataCh2)
 		switch(STATE_CAF) {
 		  //CAF activated
 		case CAF:
-		  cout<<"tm_ctr(syl_and_gap_dur) and ps_ctr in CAF mode: "<<time_counter<<"; "<<pause_counter<<"; "<<prev_pause_counter<<"; "<<dur_syl_counter<<endl;
-
+		  cout<<"tm_ctr(syl_and_gap_dur) and ps_ctr in CAF mode: "<<time_counter<<"; "<<pause_counter<<"; "<<dur_syl_counter<<endl;
 		  
-		  if(time_counter < 2*syl_and_gap_th_duration){
-		    if((rand() % 100)>40){
-		      zapEm = true;//release noise on 50% of cases
-		    }
-		  }
-		  
-		  /*
 		  if((time_counter<(mean_syl_dur+4*std_dev_syl_dur))&&(time_counter>(mean_syl_dur-4*std_dev_syl_dur))){
 		    syllables_durations[syl_counter]=time_counter;
 		    syl_counter++;
@@ -1265,7 +1247,6 @@ void Command_Code(double dataCh1, double dataCh2)
 		      zapEm=true;//release noise
 		    }
 		  }
-		  */
 		  else{
 		    cout<<"tim_cntr outside range, not considered"<<endl;
 		  }
@@ -1507,8 +1488,10 @@ double RmsValue(int length)
 
 	// Finalize Value
 	//RMS = sqrt(RMS/ (SAMP_FREQ / (1000000 / RMS_PERIOD)) );
+	//true rms bellow
 	//RMS = sqrt(RMS/length);
-        RMS = RMS/length;
+	//true rms^2 bellow
+	RMS = RMS/length;
 	//cout<<"RMS: "<<RMS<<"\n";
 	return RMS;
 }

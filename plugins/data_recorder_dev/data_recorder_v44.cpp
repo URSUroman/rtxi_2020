@@ -682,16 +682,16 @@ using namespace std;
 
 
 // Parameters: Frequencies
-const int SAMP_FREQ = 20*1000;//30.303 * 1000; 	// in Hertz
+const int SAMP_FREQ = 30.303 * 1000; 	// in Hertz
 const int CUTOFF_FREQ = 6500;		// in Hz. The highest frequency considered for computing correlation coefficents
 const int FREQ_LOW_CUT = 1000;		// in Hz. The lowest frequency considered.
 
 // Parameters: RMS
 const int RMS_PERIOD = 1000;		// in us
-const double RMS_THRESHOLD = 0.002;//0.02; //for rec Blue0 // for RTXI1: 0.01; //0.045 if ventilator out/working correctly and rms with 200 points; threshold to start recording
+const double RMS_THRESHOLD = 0.15;//0.90;	// in Volts, threshold to start recording
 const int MS_IN_RMS = 10;		// in ms, time length checked to start recording
 const int RMS_TERM_LEN = 200;		// in ms, time length checked to stop recording
-const double RMS_TERM_THRES = 0.002;//0.02; //for rec Blue0 // for RTXI1: 0.01; //0.05;//.85;	// in Volts, threshold to stop recording (if under, stops)
+const double RMS_TERM_THRES = 0.07;//.85;	// in Volts, threshold to stop recording (if under, stops)
 
 // Parameters: FFT
 const int FFT_ARRAY_SIZE = 256; 	// Must be power of 2
@@ -703,15 +703,15 @@ const int RECORD_H5_SECS = 5;		// in s; Min Num Seconds/ Trial Recorded
 const int MAX_FILE_SECS = 25;		// in s; Max sec.s recorded, not including predata
 
 // Parameters: Spectrogram/ Template
-const char TEMP_FILE[45] = "Template.txt";//"I_16_02_2021_20k_100600_102600.txt";//"Seventh_Bird_20k_108900_110900.txt";//"Sixth_Bird_20k_128772_130772.txt";//"Sixth_Bird_20k_142786_144786.txt";//"Fifth_Bird_20k_64000_66000.txt"; //"Gris1Vert2_20k_70250_72250.txt";//"Gris1Vert2_20k_106700_108000.txt";//"Gris1Vert2_20k_62500_64500.txt";//"Second_bird_syl_a_1.txt";//"Template_2.txt"; //"LowerHalfTemp.Det";	// Template File (Raw Data)
-const int MS_IN_SPECT = 50; //Template_2 with 32 ms		// in ms
+const char TEMP_FILE[45] = "Template_syl_a.txt";//"Template_2.txt"; //"LowerHalfTemp.Det";	// Template File (Raw Data)
+const int MS_IN_SPECT = 55; //Template_2 with 32 ms		// in ms
 const int SPECT_PERIOD = 1000;		// in us
 
 // Parameters: Trigger
-double corr_coeff_trig = 0.99;//0.72;//0.42;//0.62;// (for sixth bird);//0.6 for bird3//0.62//0.74; 0.54 for Fifth_bird		// Correlation to Template needed for Detection
+double corr_coeff_trig = 0.68;//0.74;		// Correlation to Template needed for Detection
 
 // Parameters: Output
-const int OUTPUT_LENGTH = 35; //32;		// in ms; output file length
+const int OUTPUT_LENGTH = 100; //32;		// in ms; output file length
 const char PLAYBACK_FILE[45] = "Noise.txt"; //"thisSyl"; // File for Feedback
 const int DEAD_TIME = 120;//50; 		// in ms. Default: OUTPUT_LENGTH + 20
 
@@ -755,7 +755,6 @@ const int RECORD_MAX = SAMP_FREQ * RECORD_H5_SECS;
 const int MFS_PTS = SAMP_FREQ * MAX_FILE_SECS;
 double dataStorage[2][MFS_PTS];
 double dataStorage_flt[MFS_PTS];
-double dataStorage_corr[MFS_PTS];
 int trialNum = 0;
 
 // Counters
@@ -765,8 +764,6 @@ int sBcounter = 0;
 int pBcounter = 0;
 int dScounter = 0;
 int deadCounter = 0;
-int dScounter_corr = 0;
-int corr_coef_computed = 0;
 
 // Booleans
 bool initialized = false;
@@ -787,29 +784,16 @@ char cwd[PATH_MAX];
 int write_control;
 ofstream file_to_write;
 ofstream file_to_write_flt;
-ofstream file_to_write_means;
-ofstream file_to_write_thresholds;
-ofstream file_to_write_fract_esc;
-ofstream file_to_write_corr;
-time_t current_time;//variable for time stamping the saved clean songs
-time_t current_time_clean_song;//variable to check the time for clean song recording. Each day from 12:00 to 14:00 clean songs are recorded
+time_t current_time;
 string file_path = "../../Documents/Recordings/Song/Raw_Recordings/";//"../../Documents/Recordings/Song/";
 string file_path_flt = "../../Documents/Recordings/Song/Raw_Recordings_flt/";
-string file_path_means_thresholds = "../../Documents/Recordings/Song/Means_and_Thresholds/";
-string file_path_corr = "../../Documents/Recordings/Song/Raw_Recordings_corr/";
 string file_name;
 string file_name_flt;
-string file_name_means;
-string file_name_thresholds;
-string file_name_fract_esc;
-string file_name_corr;
 //const char* file_name;
 stringstream ss;
-stringstream ss_clean_song;
 stringstream ss_flt;
 string file_id;
 string file_id_flt;
-string file_id_means;
 
 int max_h5_counter = SAMP_FREQ;
 int h5_counter = 0;
@@ -820,21 +804,19 @@ double max_corr_coef = 0;
 //***********************************************
 int Dt_ms = 2;
 int ms_counter = 0;
-int max_ms_counter = Dt_ms*20; //Roughly the number of samples in Dt_ms ms
-int min_dur_sil_ms = 3;
-int min_dur_sil = 20*min_dur_sil_ms;
+int max_ms_counter = Dt_ms*30; //Roughly the number of samples in Dt_ms ms
+int min_dur_sil_ms = 4;
+int min_dur_sil = 30*min_dur_sil_ms;
 int min_dur_sil_count = 0;
-int min_dur_syl_ms = 0;
-int min_dur_syl = 10;//20*min_dur_syl_ms;
-int min_dur_syl_target = 0; //Do not wait at the onset of target syllable. Output noise straightforward
+int min_dur_syl_ms = 2;
+int min_dur_syl = 30*min_dur_syl_ms;
 int min_dur_syl_count = 0;
-
 //End addintional variables
 
 //Filter parameters
-const char FILTER_FILE_H[45] = "Filter_h_20kHz_sw10.txt"; //Values for filling the filter
-const char FILTER_FILE_B[45] = "Filter_b_20kHz.txt"; //Values for filling the filter
-const int FILTER_SIZE_H = 200;//303;
+const char FILTER_FILE_H[45] = "Filter_h.txt"; //Values for filling the filter
+const char FILTER_FILE_B[45] = "Filter_b.txt"; //Values for filling the filter
+const int FILTER_SIZE_H = 303;
 const int FILTER_SIZE_B = 513;
 double filter_h[FILTER_SIZE_H]={0};
 double filter_b[FILTER_SIZE_B]={0};
@@ -845,45 +827,21 @@ double data_sqrd = 0;
 //********************************************
 //Amplitude threshold for syllable duration
 //********************************************
-double Amp_th = 7e-3;//1e-3 (for sixth bird) ;//5e-4(for fifth bird);//6e-4;//2.5e-3;//2e-5; Fifth Bird: 5e-4 
+double Amp_th = 1.6e-4;
 double time_counter = 0;
-double pause_counter = 0;
-double prev_pause_counter=0;
-double dur_syl_counter = 0;
 //*******************************************
 //Threshold for syllable duration
 //*******************************************
-double treshold_fract_escape = 0.75;
-double treshold_fract_escape_low_limit = 0.1;
-double syl_th_duration = 10000;//corresponds to the nb of samples at 30303 Hz.
-double syl_and_gap_th_duration = 1500;//syllable and gap only;//3693(for sith bird syllable and gap);//3856; //3731; 849
-double prev_pause_duration_max=350;
-double prev_pause_duration_min=10;
-const int Nb_syllables = 200;//200
-double syllables_durations[Nb_syllables+10] = {0};
+double syl_th_duration = 5669;//corresponds to the nb of samples at 30303 Hz.
+double syl_and_gap_th_duration = 6978;
+const int Nb_syllables = 200;
+double syllables_durations[Nb_syllables] = {0};
 int syl_counter = 0;
-int syl_counter_no_CAF=0;
-int syl_counter_no_CAF_limit=1;//ideally we will gather 110 syllables during NO_CAF mode each day for off-line processing 
-const int Nb_thresholds = 1000;
-double syllable_thresholds_history[Nb_thresholds]={0};
-double syllable_mean_200_history[Nb_thresholds]={0};
-double syllable_fract_esc_200_history[Nb_thresholds]={0};
-double syllable_std_dev_200_history[Nb_thresholds]={0};
-int threshold_counter = 0;
-double last_time;//time of last recording
-double one_day_delay = 24*60*60;//24*60*60; //nb of seconds in one day
-double two_hours_delay = 2*60*60;
-double mean_syl_dur=0;
-double std_dev_syl_dur=0;
-double std_dev_syl_dur_fixd=50;
-
 
 enum States {INIT, FIRST_SYL, FIRST_PAUSE, MIN_SYL_DUR_END, MIN_SYL_DUR, MIN_PAUSE_DUR};
 enum States STATE;
 //STATE=INIT;
 
-enum States_CAF {CAF, NO_CAF};
-enum States_CAF STATE_CAF;
 
 
 // Functions
@@ -1024,14 +982,6 @@ void Initialize()
 
 	//Initialise state of the FSM
 	STATE=INIT;
-	STATE_CAF=CAF;
-
-	//Initialize last_time variable
-	time(&current_time_clean_song);
-	last_time=(double)current_time_clean_song-24*60*60;//-60*60;
-
-	mean_syl_dur = syl_and_gap_th_duration;
-	std_dev_syl_dur = 50;
 	
 	initialized = true;
 
@@ -1086,7 +1036,6 @@ void Command_Code(double dataCh1, double dataCh2)
 
 
         //Band pass filter with freq cutoffs 1000;8000
-	/*
         data_flt = 0;
 	if ((cBcounter >= (FILTER_SIZE_B-1))) {
 	  for (int i = 0; i != FILTER_SIZE_B; i++)
@@ -1103,9 +1052,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	}
         //circularBuffer_filtd[cBcounter] = filtered_point;
 	circularBuffer_bp_flt[cBcounter] = data_flt;
-	*/
-	
-	circularBuffer_bp_flt[cBcounter] = circularBuffer[0][cBcounter];
 
 
 	//Square the bp filtered signal
@@ -1149,32 +1095,18 @@ void Command_Code(double dataCh1, double dataCh2)
 	circularBuffer_flt[cBcounter] = data_flt;
 	
 
-	//Debug
-	/*
-	if (((cBcounter+3) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"Before Switch STATE (in Cmd_code)"<<endl;
-	}
-	*/
-	
 	//State machine for computing the duration of the target element (syllable + gap)
 	switch(STATE) {
 	case INIT:
-	    time_counter=min_dur_syl_count;//A portion of the syllable was already taken into consideration in the state MIN_SYL_DUR_END
-	    pause_counter=0;
-	    prev_pause_counter=0;
-	    dur_syl_counter = 0;
-	    //min_dur_syl_count=0;
+	    time_counter=0;
+	    min_dur_syl_count=0;
 	    min_dur_sil_count=0;
-	    if(( circularBuffer_flt[cBcounter]> Amp_th)){
-	      time_counter++;
-	      min_dur_syl_count++;
-	      STATE=MIN_SYL_DUR;
-	      //cout<<STATE<<endl;
-	    }
-	    else{
-	      time_counter=0;
-	      min_dur_syl_count=0;
-	    }
+	  if(( circularBuffer_flt[cBcounter]> Amp_th)){
+	    time_counter++;
+	    min_dur_syl_count++;
+	    STATE=MIN_SYL_DUR;
+	    //cout<<STATE<<endl;
+	  }
 	  break;
 	case MIN_SYL_DUR:
 	  if(( circularBuffer_flt[cBcounter]> Amp_th)){
@@ -1211,9 +1143,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	    if(min_dur_sil_count>min_dur_sil){
 	      STATE=FIRST_PAUSE;
 	      //cout<<STATE<<endl;
-	      dur_syl_counter = time_counter-min_dur_sil_count;//Substract the part of the pause that is already in the time_counter
-	      prev_pause_counter=pause_counter;
-	      pause_counter=min_dur_sil_count;
 	      min_dur_sil_count=0;
 	    }
 	  }
@@ -1227,12 +1156,10 @@ void Command_Code(double dataCh1, double dataCh2)
 	case FIRST_PAUSE:
 	  if(( circularBuffer_flt[cBcounter]< Amp_th)){
 	    time_counter++;
-	    pause_counter++;
 	  }
 	  else{
 	    STATE=MIN_SYL_DUR_END;
-	    min_dur_syl_count=0;
-	    min_dur_syl_count++;
+	    min_dur_sil_count++;
 	    time_counter++;
 	    //cout<<STATE<<endl;
 	  }  
@@ -1240,56 +1167,23 @@ void Command_Code(double dataCh1, double dataCh2)
 	case MIN_SYL_DUR_END:
 	  if(( circularBuffer_flt[cBcounter]> Amp_th)){
 	    min_dur_syl_count++;
-	    time_counter++;
-	    if(min_dur_syl_count>min_dur_syl_target){
-	      time_counter = time_counter-min_dur_syl_count;//Substract from time_counter the portion of the next syllable that it counted in this state
+	    if(min_dur_syl_count>min_dur_syl){
+	      STATE=INIT;
+	      //cout<<STATE<<endl;
+	      min_dur_sil_count=0;
 	      if(Template_found){
-		//cout<<"tim_cntr(syl_and_gap_dur): "<<time_counter<<endl;
-		switch(STATE_CAF) {
-		  //CAF activated
-		case CAF:
-		  cout<<"tm_ctr(syl_and_gap_dur) and ps_ctr in CAF mode: "<<time_counter<<"; "<<pause_counter<<"; "<<prev_pause_counter<<"; "<<dur_syl_counter<<endl;
-
-		  
-		  if(time_counter < 2*syl_and_gap_th_duration){
-		    if((rand() % 100)>40){
-		      zapEm = true;//release noise on 50% of cases
-		    }
-		  }
-		  
-		  /*
-		  if((time_counter<(mean_syl_dur+4*std_dev_syl_dur))&&(time_counter>(mean_syl_dur-4*std_dev_syl_dur))){
-		    syllables_durations[syl_counter]=time_counter;
-		    syl_counter++;
-		    if(time_counter < syl_and_gap_th_duration){
-		      zapEm=true;//release noise
-		    }
-		  }
-		  */
-		  else{
-		    cout<<"tim_cntr outside range, not considered"<<endl;
-		  }
-		  break;
-		  //CAF deactivated
-		case NO_CAF:
-		  cout<<"tm_cntr(syl_and_gap_dur) and ps_ctr in NO_CAF mode: "<<time_counter<<"; "<<pause_counter<<"; "<<dur_syl_counter<<endl;
-		  syl_counter_no_CAF++;
-		  break;
+		cout<<"tim_cntr(syl_and_gap_dur): "<<time_counter<<endl;
+		if(time_counter < syl_and_gap_th_duration){
+		  //zapEm=true;//release noise
 		}
-		
 		Template_found=false;
 	      }
-	      STATE=FIRST_SYL;
-	      //cout<<STATE<<endl;
-	      time_counter = min_dur_syl_count;
-	      min_dur_syl_count=0;
 	    }
 	  }
 	  else{
-	    time_counter++;
-	    pause_counter = pause_counter+min_dur_syl_count;
+	    time_counter=time_counter+min_dur_syl_count;
 	    min_dur_syl_count=0;
-	    //min_dur_syl_count++;
+	    min_dur_syl_count++;
 	    STATE=FIRST_PAUSE;
 	    //cout<<STATE<<endl;
 	  }  
@@ -1297,14 +1191,6 @@ void Command_Code(double dataCh1, double dataCh2)
 	}
 
 
-	//Debug
-	/*
-	if (((cBcounter+3) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"After Switch STATE (in Cmd_code)"<<endl;
-	}
-	*/
-
-	
 	//*******************************************************************************
 	//        Comment lines bellow if you want to use the state machine above
 	//*******************************************************************************
@@ -1367,109 +1253,29 @@ void Command_Code(double dataCh1, double dataCh2)
 				}
 			}
 
-	// Do FFT. (Comment the if{}  if you want to do FFT each ms even if RMS is not high)
-	if (rmsHit){ 
+	// Do FFT
+	if (rmsHit){
 	  if (((cBcounter+1) % (SAMP_FREQ / (1000000 / FFT_PERIOD)) == ( (SAMP_FREQ / (1000000 / FFT_PERIOD)) - 1))){
 	    FftGo();
 	  }
-	  }
+	}
 
-	// Compare Spectrogram with Template. (Comment the if{}  if you want to do FFT each ms even if RMS is not high)
+	// Compare Spectrogram with Template
 	if (rmsHit){
 	  if (((cBcounter+2) % (SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
 	    Compare_Spects();
 	  }
-	  }
-
-
-	//Debug
-	/*
-	if (((cBcounter+3) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"State_caf befor check for 200 syls: "<<STATE_CAF<<endl;
 	}
-	*/
-	
-
-	//*****************************************************************************
-	// Check if 200 syllables were accumulated and if so, scompute new threshold
-	//*****************************************************************************
-	
-	if(syl_counter==Nb_syllables){
-	  cout<<"200 new syllables"<<endl;
-	  mean_syl_dur=0;
-	  std_dev_syl_dur=0;
-	  //compute mean duration
-	  for(int i=0;i<Nb_syllables;i++){
-	    mean_syl_dur=mean_syl_dur+syllables_durations[i];
-	  }
-	  mean_syl_dur = mean_syl_dur/Nb_syllables;
-
-	  //compute std_dev of duration
-	  for(int i=0;i<Nb_syllables;i++){
-	    std_dev_syl_dur = std_dev_syl_dur+pow((syllables_durations[i]-mean_syl_dur),2);
-	  }
-	  std_dev_syl_dur=sqrt(std_dev_syl_dur/Nb_syllables);
-
-	  //compute fraction of escape
-	  int escape_count=0;
-	  double fract_escape=0;
-	  for(int i=0;i<Nb_syllables;i++){
-	    if(syllables_durations[i]>syl_and_gap_th_duration){
-	      escape_count++;
-	    }
-	  }
-	  fract_escape=((double)escape_count)/((double)Nb_syllables);
-
-	  //set new threshold
-	  double new_threshold=0;
-	  if((fract_escape>treshold_fract_escape)&&(mean_syl_dur>syl_and_gap_th_duration)){ //mean_syl_dur is actually the duration of the prev_syllable+following gap i.e. is the duration of the target element
-	    new_threshold=mean_syl_dur;
-	    syl_and_gap_th_duration=mean_syl_dur;
-	  }
-	  // else if(fract_escape<treshold_fract_escape_low_limit){
-	  //   syl_and_gap_th_duration=syl_and_gap_th_duration-0.3*(syl_and_gap_th_duration-mean_syl_dur);
-	  //   new_threshold = syl_and_gap_th_duration;
-	  // }
-	  else{
-	    new_threshold=syl_and_gap_th_duration;
-	  }
-
-	  syllable_thresholds_history[threshold_counter]=new_threshold;
-	  syllable_mean_200_history[threshold_counter]=mean_syl_dur;
-	  syllable_std_dev_200_history[threshold_counter]=std_dev_syl_dur;
-	  syllable_fract_esc_200_history[threshold_counter]=fract_escape;
-	  threshold_counter++;
-	  syl_counter=0;
-	  cout<<"mean: "<<mean_syl_dur<<endl;
-	  cout<<"std_dev: "<<std_dev_syl_dur<<endl;
-	  cout<<"fract_esc: "<<fract_escape<<endl;
-	  cout<<"new_threshold: "<<new_threshold<<endl;
+	// Record H5 for X seconds
+	if (rmsHit) {
+		if ((record_counter++ == RECORD_MAX)) {
+			if ((RmsValue(POINTS_IN_RMS_TERM) < RMS_TERM_THRES)) {
+				rmsHit = false;
+				record_counter = 0;
+				writeData = true;
+			} else record_counter = RECORD_MAX - SAMP_FREQ;
+		}
 	}
-	
-	//Debug
-	/*
-	if (((cBcounter+3) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"State_caf after check for 200 syls: "<<STATE_CAF<<endl;
-	}
-	*/
-	  
-	// Record H5 for X seconds (only if in NO_CAF mode)
-	switch(STATE_CAF){
-	case CAF:
-	  break;
-	case NO_CAF:
-	  if (rmsHit) {
-	    if ((record_counter++ == RECORD_MAX)) {
-	      if ((RmsValue(POINTS_IN_RMS_TERM) < RMS_TERM_THRES)) {
-		rmsHit = false;
-		record_counter = 0;
-		writeData = true;
-	      } else record_counter = RECORD_MAX - SAMP_FREQ;
-	    }
-	  }
-	  break;
-	}
-	
 
 	// Make Buffer wrap around
 	if ((cBcounter == CB_ARRAY_SIZE - 1)) {
@@ -1507,8 +1313,7 @@ double RmsValue(int length)
 
 	// Finalize Value
 	//RMS = sqrt(RMS/ (SAMP_FREQ / (1000000 / RMS_PERIOD)) );
-	//RMS = sqrt(RMS/length);
-        RMS = RMS/length;
+	RMS = sqrt(RMS/length);
 	//cout<<"RMS: "<<RMS<<"\n";
 	return RMS;
 }
@@ -1598,12 +1403,6 @@ void Compare_Spects()
 	//cout<<"correlation_coefficient: "<<correlation_coefficient<<endl;
 	//cout<<"currentSpect: "<<spectLen<<endl;
 	
-	//Store corr_coef
-	if (dScounter_corr < MFS_PTS) {
-	  dataStorage_corr[dScounter_corr++] = correlation_coefficient;
-	  corr_coef_computed=1;
-	}
-
 
 	// Zap Em? (output)
 	if (correlation_coefficient >= corr_coeff_trig && deadCounter == 0) {
@@ -1636,7 +1435,6 @@ void Reset()
 	sBcounter = 0;
 	pBcounter = 0;
 	dScounter = 0;
-	dScounter_corr = 0;
 	deadCounter = 0;
 
 	// Booleans
@@ -1650,7 +1448,6 @@ void Reset()
 
 	//State machine
 	STATE=INIT;
-	STATE_CAF=CAF;
 
 	// Arrays
 	for (int i = 0; i != SPECT_ARRAY_SIZE; i++) {
@@ -1718,198 +1515,93 @@ void DataRecorder::Panel::execute(void) {
 		}
 	}
 
-	//Check whether we are in CAF mode (in that case output noise conditionned on target duration) or in NO_CAF mode (in that case record songs and save them)
-	time(&current_time_clean_song);
+	// Write Data
+	if (writeData) {
+		// if (isInteresting) {
+		// 	double appendData[2];
+		// 	for (int i = 0; i != CB_ARRAY_SIZE; i++) {
+		// 		appendData[0] = predata[0][i];
+		// 		appendData[1] = predata[1][i];
+		// 		DataRecorder::Panel::AppendMe(appendData);
+		// 	}
+		// 	for (int i = 0; i != dScounter; i++) {
+		// 		appendData[0] = dataStorage[0][i];
+		// 		appendData[1] = dataStorage[1][i];
+		// 		DataRecorder::Panel::AppendMe(appendData);
+		// 	}
+		// 	cout << "  Trial " << trialNum << " Complete.\n\n"; // open RTXI from the terminal to see cout messages
+		// 	//StopStart();
+		// }
 
-	//Debug
-	/*
-	if (((cBcounter+2) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"State_caf before switch STATE_CAF: "<<STATE_CAF<<endl;
-	}
-	*/
-	
-	switch(STATE_CAF) {
-	  //CAF activated
-	case CAF:
-	  if((((double)current_time_clean_song)-last_time)>one_day_delay){
-	    last_time=(double)current_time_clean_song;
-	    //***********************************************
-	    //Not essential, comment later
-	    //***********************************************
-	    //drop the vector of thresholds and means
-	    ss_clean_song<<current_time_clean_song;
-	    file_id_means = ss_clean_song.str();
-	    file_name_means = file_path_means_thresholds + "file_means_" + file_id_means + ".txt";
-	    file_name_thresholds = file_path_means_thresholds + "file_thresholds_" + file_id_means + ".txt";
-	    file_name_fract_esc = file_path_means_thresholds + "file_fract_esc_" + file_id_means + ".txt";
+	  //Write data to fifos to be written to files in the low priority thread
+	  //***********************************************************************************
+	  //                  Coment section bellow to not write data to files
+	  //***********************************************************************************
+	  if (isInteresting) {
+	    //double appendData[2 * channels.size()];
+	    double appendData[channels.size()];
 
+	    //Put _START label in fifo
+	    token.type = _START;
+	    //token.size = 2 * channels.size() * sizeof(double); //Data point and Data_flt point are doubles . channels.size is normally 1, that's why we have 2*channels.size
+	    token.size = channels.size() * sizeof(double);
+	    fifo.write(&token, sizeof(token));
 
-	    
-	    file_to_write_means.open(file_name_means);
-	    //drop means
-	    if(file_to_write_means.is_open()){
-	      for(int i=0;i<threshold_counter;i++){
-		file_to_write_means << syllable_mean_200_history[i] <<'\n';
+	    //Put data into fifo
+	    token.type = SYNC;
+	    for (int i = 0; i != (CB_ARRAY_SIZE-1); i++) {
+	      //appendData[0] = predata[0][i];
+	      //appendData[1] = predata[1][i];
+	      appendData[0] = predata[0][i];
+	      //appendData[1] = predata_flt[i];
+	      if (!fifo.tooBig(sizeof(token)) && !fifo.tooBig(token.size)) {
+	  	fifo.write(&token, sizeof(token));
+	  	fifo.write(appendData, sizeof(appendData));
 	      }
+	      // else
+	      //   {
+	      //     cout<<"fifo.tooBig for predata: "<<endl;
+	      //   }
 	    }
-	    else
-	      {
-		cout<<"File_means is not opened in CAF state. File is open:"<<file_to_write_means.is_open()<<endl;
-		if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		  cout<<"Current working dir: "<<cwd<<endl;
-		}
-	      }
-	    file_to_write_means.close();
-
-	    //drop thresholds
-	    file_to_write_thresholds.open(file_name_thresholds);
-	    if(file_to_write_thresholds.is_open()){
-	      for(int i=0;i<threshold_counter;i++){
-		file_to_write_thresholds << syllable_thresholds_history[i]<<'\n';
-	      }
-	    }
-	    else
-	      {
-		cout<<"File_thresholds is not opened in CAF state. File is open:"<<file_to_write_thresholds.is_open()<<endl;
-		if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		  cout<<"Current working dir: "<<cwd<<endl;
-		}
-	      }
-	    file_to_write_thresholds.close();
-
-
-
-	    //drop fract_esc
-	    file_to_write_fract_esc.open(file_name_fract_esc);
-	    if(file_to_write_fract_esc.is_open()){
-	      for(int i=0;i<threshold_counter;i++){
-		file_to_write_fract_esc << syllable_fract_esc_200_history[i]<<'\n';
-	      }
-	    }
-	    else
-	      {
-		cout<<"File_fract_esc is not opened in CAF state. File is open:"<<file_to_write_fract_esc.is_open()<<endl;
-		if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		  cout<<"Current working dir: "<<cwd<<endl;
-		}
-	      }
-	    file_to_write_fract_esc.close();
-	    
-	    ss_clean_song.str(string());
-	    threshold_counter=0;
-	    //*******************************************
-	    //Not essential what is above, comment later
-	    //*******************************************
-	    //change state
-	    STATE_CAF=NO_CAF;
-	    cout<<"Switched to NO_CAF mode"<<endl;
-	  }
-	  break;
-	  //no CAF
-	case NO_CAF:
-	  // Write Data
-	  if (writeData) {
-	    //Write data to fifos to be written to files in the low priority thread
-	    //***********************************************************************************
-	    //                  Coment section bellow to not write data to files
-	    //***********************************************************************************
-	    if (isInteresting) {
-	      double appendData[3 * channels.size()];
-	      //double appendData[channels.size()];
-
-	      //Put _START label in fifo
-	      token.type = _START;
-	      token.size = 3 * channels.size() * sizeof(double); //Data point and Data_flt point and dataStorage_corr are doubles are doubles . channels.size is normally 1, that's why we have 2*channels.size
-	      //token.size = channels.size() * sizeof(double);
-	      fifo.write(&token, sizeof(token));
-
-	      //Put data into fifo
-	      token.type = SYNC;
-	      for (int i = 0; i != (CB_ARRAY_SIZE-1); i++) {
-		appendData[0] = predata[0][i];
-		//appendData[1] = predata_flt[i];
-		appendData[2] = 0;
-		if (!fifo.tooBig(sizeof(token)) && !fifo.tooBig(token.size)) {
-		  fifo.write(&token, sizeof(token));
-		  fifo.write(appendData, sizeof(appendData));
-		}
-		// else
-		//   {
-		//     cout<<"fifo.tooBig for predata: "<<endl;
-		//   }
-	      }
 			
-	      for (int i = 0; i != dScounter; i++) {
-		appendData[0] = dataStorage[0][i];
-		//appendData[1] = dataStorage_flt[i];
-		appendData[2] = dataStorage_corr[i];
-		if (!fifo.tooBig(sizeof(token)) && !fifo.tooBig(token.size)) {
-		  fifo.write(&token, sizeof(token));
-		  fifo.write(appendData, sizeof(appendData));
-		}
-		// else
-		//   {
-		//     cout<<"fifo.tooBig for dataStorage: "<<endl;
-		//   }
+	    for (int i = 0; i != dScounter; i++) {
+	      //appendData[0] = dataStorage[0][i];
+	      //appendData[1] = dataStorage[1][i];
+	      appendData[0] = dataStorage[0][i];
+	      //appendData[1] = dataStorage_flt[i];
+	      if (!fifo.tooBig(sizeof(token)) && !fifo.tooBig(token.size)) {
+	  	fifo.write(&token, sizeof(token));
+	  	fifo.write(appendData, sizeof(appendData));
 	      }
-	      cout << "  Trial " << trialNum << " Complete.\n\n"; // open RTXI from the terminal to see cout messages
+	      // else
+	      //   {
+	      //     cout<<"fifo.tooBig for dataStorage: "<<endl;
+	      //   }
 
-	      //Put _STOP token in fifo
-	      token.type = _STOP;
-	      fifo.write(&token, sizeof(token));
-
-	      write_control = 1;
-			
-	      //StopStart();
 	    }
-	    //***********************************************************************************
-	    //                  Coment section above to not write data to files
-	    //***********************************************************************************
-	    writeData = false;
-	    dScounter = 0;
-	    dScounter_corr = 0;
-	  }
-	  //Make sure we gathered enough syllables during NO_CAF before switching to CAF mode again
+	    cout << "  Trial " << trialNum << " Complete.\n\n"; // open RTXI from the terminal to see cout messages
 
-	  //Provisory condition on NO_CAF -> CAF switch rec for two hours
-	  /*
-	  if((((double)current_time_clean_song)-last_time)>two_hours_delay){
-	    STATE_CAF=CAF;
-	    cout<<"Switched to CAF mode"<<endl;
+	    //Put _STOP token in fifo
+	    token.type = _STOP;
+	    fifo.write(&token, sizeof(token));
+
+	    write_control = 1;
+			
+	    //StopStart();
 	  }
-	  */
-	  
-	  // uncomment below for normal use of v46
-	  if(syl_counter_no_CAF==syl_counter_no_CAF_limit){
-	    STATE_CAF=CAF;
-	    cout<<"Switched to CAF mode"<<endl;
-	    syl_counter=0;
-	    syl_counter_no_CAF=0;
-	  }
-	 
-	  break;
+	  //***********************************************************************************
+	  //                  Coment section above to not write data to files
+	  //***********************************************************************************
+
+	  writeData = false;
+	  dScounter = 0;
 	}
 
-	//Debug
-	/*
-	if (((cBcounter+2) % (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) == ( (2000*SAMP_FREQ / (1000000 / SPECT_PERIOD)) - 1))){
-	  cout<<"State_caf after switch STATE_CAF: "<<STATE_CAF<<endl;
-	}
-	*/
-
-	
 	
 	// Store Data to be Written (several seconds) Later
 	if (rmsHit && (dScounter < MFS_PTS)) {
 		dataStorage[0][dScounter] = data[0];
 		dataStorage[1][dScounter] = data[1]; //dScounter++ was here
-		//Correlation coefficient
-		if(corr_coef_computed){
-		  corr_coef_computed=0;
-		}
-		else{
-		  dataStorage_corr[dScounter_corr++]=0;
-		}
 		//Filtered data
 		dataStorage_flt[dScounter++] = circularBuffer_flt[cBcounter-1];
 	}
@@ -1983,7 +1675,7 @@ void DataRecorder::Panel::receiveEvent(const Event::Object *event)
             blockPtrList.push_back(block);
             blockList->addItem(QString::fromStdString(block->getName()) + " " + QString::number(block->getID()));
             buildChannelList();
-	}
+        }
     else if (event->getName() == Event::IO_BLOCK_REMOVE_EVENT)
         {
             IO::Block *block = reinterpret_cast<IO::Block *> (event->getParam("block"));
@@ -2518,11 +2210,8 @@ void DataRecorder::Panel::processData(void)
 		    file_id = ss.str();
 		    file_name = file_path + "file_" + file_id + ".txt";
 		    file_name_flt = file_path_flt + "file_" + file_id + "_flt.txt";
-		    file_name_corr = file_path_corr + "file_" + file_id + "_corr.txt";
 		    file_to_write.open(file_name);
 		    //file_to_write_flt.open(file_name_flt);
-		    file_to_write_corr.open(file_name_corr);
-		    
 		    if(!file_to_write.is_open()){
 		      cout<<"Unable to open file in _START/RECORD. File is open:  "<<file_to_write.is_open()<<endl;
 		      if (getcwd(cwd, sizeof(cwd)) != NULL) {
@@ -2539,16 +2228,6 @@ void DataRecorder::Panel::processData(void)
 		    // }
 		    // cout<<"File flt opened"<<endl;
 
-
-		    // if(!file_to_write_corr.is_open()){
-		    //   cout<<"Unable to open file in _START/RECORD. File is open:  "<<file_to_write_corr.is_open()<<endl;
-		    //   if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		    // 	cout<<"Current working dir: "<<cwd<<endl;
-		    //   } 
-		    // }
-		    // cout<<"File corr opened"<<endl;
-		    
-
 		    
 		  }
 	      }
@@ -2559,10 +2238,8 @@ void DataRecorder::Panel::processData(void)
 		  {
 		    file_to_write.close();
 		    cout<<"File written"<<endl;
-		    //file_to_write_flt.close();
-		    //cout<<"File flt written"<<endl;
-		    file_to_write_corr.close();
-		    cout<<"File corr written"<<endl;
+		    // file_to_write_flt.close();
+		    // cout<<"File flt written"<<endl;
 		    ss.str(string());
   
 		  }
@@ -2581,7 +2258,6 @@ void DataRecorder::Panel::processData(void)
 		    if(file_to_write.is_open()){
 		      file_to_write << data[0]<<'\n'; //data
 		      //file_to_write_flt << data[1]<<'\n'; //data_flt
-		      file_to_write_corr << data[2]<<'\n'; //data_corr
 		    }
 		    else
 		      {
@@ -2618,7 +2294,7 @@ void DataRecorder::Panel::processData(void)
                                     QString data_name = QString::number(static_cast<unsigned long long> (_token.time));
                                     hid_t adata = H5Dcreate(file.adata, data_name.toLatin1().constData(),
                                                             array_type, array_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-                                    //H5Dwrite(adata, array_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
+                                    H5Dwrite(adata, array_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
 
                                     H5Dclose(adata);
                                     H5Tclose(array_type);
@@ -2822,7 +2498,7 @@ void DataRecorder::Panel::closeFile(bool shutdown)
     for(std::vector<std::string>::iterator it = dataTags.begin(); it != dataTags.end(); ++it)
         {
             data = H5Dcreate(file.tdata, std::string("Tag " + std::to_string(i++)).c_str(), tag_type, tag_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            //status = H5Dwrite(data, tag_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, it->c_str());
+            status = H5Dwrite(data, tag_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, it->c_str());
         }
     dataTags.clear();
 
@@ -2897,25 +2573,25 @@ int DataRecorder::Panel::startRecording(long long timestamp)
 		std::string version_string = QString(VERSION).toStdString();
 		char * version_c_string = new char[version_string.length()+1];
 		std::strcpy(version_c_string, version_string.c_str());
-    //H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, version_c_string);
+    H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, version_c_string);
     delete[] version_c_string;
     H5Dclose(data);
 
     long long period = RT::System::getInstance()->getPeriod();
     data = H5Dcreate(file.trial, "Period (ns)", H5T_STD_U64LE, scalar_space,
                      H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    //H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &period);
+    H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &period);
     H5Dclose(data);
 
     long long downsample = downsample_rate;
     data = H5Dcreate(file.trial, "Downsampling Rate", H5T_STD_U64LE,
                      scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    //H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &downsample);
+    H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &downsample);
     H5Dclose(data);
 
     data = H5Dcreate(file.trial, "Timestamp Start (ns)", H5T_STD_U64LE,
                      scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    //H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &timestamp);
+    H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &timestamp);
     H5Dclose(data);
 
     data = H5Dcreate(file.trial, "Date", string_type,
@@ -2923,7 +2599,7 @@ int DataRecorder::Panel::startRecording(long long timestamp)
 		std::string date_string = QDateTime::currentDateTime().toString(Qt::ISODate).toStdString();
 		char * date_c_string = new char[date_string.length()+1];
 		std::strcpy(date_c_string, date_string.c_str());
-    //H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, date_c_string);
+    H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, date_c_string);
     delete[] date_c_string;
     H5Dclose(data);
 
@@ -2951,7 +2627,7 @@ int DataRecorder::Panel::startRecording(long long timestamp)
                     hsize_t	dims = dynamic_cast<Workspace::Instance *> (block)->getValueString(Workspace::COMMENT, j).size() + 1;
                     hid_t comment_space = H5Screate_simple(1, &dims, &dims);
                     data = H5Dcreate(file.pdata, comment_name.toLatin1().constData(), H5T_C_S1,	comment_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-                    //H5Dwrite(data, H5T_C_S1, H5S_ALL, H5S_ALL, H5P_DEFAULT,	dynamic_cast<Workspace::Instance *> (block)->getValueString(Workspace::COMMENT, j).c_str());
+                    H5Dwrite(data, H5T_C_S1, H5S_ALL, H5S_ALL, H5P_DEFAULT,	dynamic_cast<Workspace::Instance *> (block)->getValueString(Workspace::COMMENT, j).c_str());
                     H5Dclose(data);
                 }
         }
@@ -2965,7 +2641,7 @@ int DataRecorder::Panel::startRecording(long long timestamp)
             std::string rec_chan_name = std::to_string(++count) + " " + i->name.toStdString();
             rec_chan_name.erase(std::remove_if(rec_chan_name.begin(), rec_chan_name.end(), &::ispunct), rec_chan_name.end());
             hid_t data = H5Dcreate(file.sdata, rec_chan_name.c_str(), string_type, scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-            //H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, rec_chan_name.c_str());
+            H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, rec_chan_name.c_str());
             H5Dclose(data);
         }
 
@@ -2988,27 +2664,27 @@ int DataRecorder::Panel::startRecording(long long timestamp)
 							std::string range_string = dev->getAnalogRangeString(DAQ::AI,static_cast<DAQ::index_t>(i),dev->getAnalogRange(DAQ::AI,static_cast<DAQ::index_t>(i)));
 							char * range_c_string = new char[range_string.length()+1];
 							std::strcpy(range_c_string, range_string.c_str());
-							//H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, range_c_string);
+							H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, range_c_string);
 							delete[] range_c_string;
 
 							data = H5Dcreate(file.chandata, "Reference", string_type, scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 							std::string ref_string = dev->getAnalogReferenceString(DAQ::AI,static_cast<DAQ::index_t>(i),dev->getAnalogReference(DAQ::AI,static_cast<DAQ::index_t>(i)));
 							char * ref_c_string = new char[ref_string.length()+1];
 							std::strcpy(ref_c_string, ref_string.c_str());
-							//H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, ref_c_string);
+							H5Dwrite(data, string_type, H5S_ALL, H5S_ALL, H5P_DEFAULT, ref_c_string);
 							delete[] ref_c_string;
 
 							double scale = dev->getAnalogGain(DAQ::AI,static_cast<DAQ::index_t>(i));
 							data = H5Dcreate(file.chandata, "Gain", H5T_IEEE_F64LE, scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-							//H5Dwrite(data, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &scale); 
+							H5Dwrite(data, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &scale); 
 
 							double offset = dev->getAnalogZeroOffset(DAQ::AI,static_cast<DAQ::index_t>(i));
 							data = H5Dcreate(file.chandata, "Offset", H5T_IEEE_F64LE, scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-							//H5Dwrite(data, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &offset); 
+							H5Dwrite(data, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &offset); 
 
 							int downsample = dev->getAnalogDownsample(DAQ::AI,static_cast<DAQ::index_t>(i));
 							data = H5Dcreate(file.chandata, "Downsample", H5T_STD_I16LE, scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-							//H5Dwrite(data, H5T_STD_I16LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &downsample);
+							H5Dwrite(data, H5T_STD_I16LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &downsample);
 							H5Dclose(data);
 						}
 
@@ -3043,7 +2719,7 @@ void DataRecorder::Panel::stopRecording(long long timestamp)
     hid_t scalar_space = H5Screate(H5S_SCALAR);
     hid_t data = H5Dcreate(file.trial, "Timestamp Stop (ns)", H5T_STD_U64LE,
                            scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    //H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &timestamp);
+    H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &timestamp);
     H5Dclose(data);
 
     // Write trial length to data file
@@ -3052,7 +2728,7 @@ void DataRecorder::Panel::stopRecording(long long timestamp)
     long long datalength = period * fixedcount;
     data = H5Dcreate(file.trial, "Trial Length (ns)", H5T_STD_U64LE,
                      scalar_space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    //H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &datalength);
+    H5Dwrite(data, H5T_STD_U64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &datalength);
     H5Dclose(data);
 
     // Close all open structs

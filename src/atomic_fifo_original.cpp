@@ -95,19 +95,3 @@ bool AtomicFifo::isLockFree() const
 {
     return (tail.is_lock_free() && head.is_lock_free());
 }
-
-bool AtomicFifo::tooBig(size_t howBigIsIt)
-{
-
-        const auto current_tail = tail.load(std::memory_order_seq_cst);
-	const auto current_head = head.load(std::memory_order_seq_cst);
-
-	if(howBigIsIt >= fifoSize - ((fifoSize + current_tail - current_head) % fifoSize)) return true;
-	else return false;
-}
-
-size_t AtomicFifo::GetFifoSize()
-{
-  return fifoSize;
-
-}

@@ -1,0 +1,194 @@
+data_recorder_v1.cpp : inherited from Kozhevnikov, no major modifications
+data_recorder_v2.cpp : data is regularly writen to files (all the 25 secs)
+data_recorder_v3.cpp : data is regularly writen to files (all the 25 secs)+
+                       signal is smoothed and duration of syllables is computed
+data_recorder_v0.cpp : original data_recorder file with possibly minor printout modifications. RTXI works well with that file: no problems after multiple, consecutive start/stop. No problems detected with sampling rate.
+
+data_recorder_v4.cpp : new attempt to adapt KZ to RTXI. As of 30.08.2018 seems to work. This file is a merge of original data_recorder.cpp with data_recorder_kz.cpp with minimal changes to original data_recorder.cpp. It outputs the RMS. PROBLEM: data is sometimes written to disk with a too high sampling rate. The explanation could be that the write operation to file is done in high priority thread. This might interfere with proper recording of data
+data_recorder_v4.h : corresponding .h file
+
+
+data_recorder_v41.cpp : starting from v4, write to fifo in high priority thread and let the third thread write data from fifo to disk. Use auxiliary fifo_song to store song data. Could work but need to solve the "continue" issue in procesData()
+data_recorder_v41.h : corresponding .h file
+
+
+data_recorder_v42.cpp : starting from v4 and v41, write to fifo in high priority thread and let the third thread write data from fifo to disk. Do not use auxiliary fifo_song to store song data. Seems to work as of 30.10.2018. Avoid touching it!
+data_recorder_v42.h : corresponding .h file
+
+data_recorder_v43.cpp : starting from v42, output feedback only if right syllable of length shorter or longer than a threshold
+data_recorder_v43.h : corresponding .h file
+
+data_recorder_v431.cpp : starting from v43, output feedback with probability 0.5 when proper syllable detected. Used with bird in recording chamber to correlate firing rate with clean syllable vs with noisy syllable. The correlation coefficient is also recorded each ms and 0 in between. Outdated as of 02.08.2019
+data_recorder_v431.h : corresponding .h file
+
+data_recorder_v44.cpp : starting from v43, output feedback only if right (syllable+gap) of length shorter or longer than a threshold. Use FSM in Command_code() function
+data_recorder_v44.h : corresponding .h file
+
+data_recorder_v46.cpp : starting from v44, as in v44 but adapt the threshold dynamically: compute the duration of the last 200 detected syllables. As of 14.12.2019 commented all HD5write calls to see if corrects occasional crashes of rtxi especially when switching from no_caf to caf mode
+data_recorder_v46.h : corresponding .h file
+
+data_recorder_v47.cpp : starting from v46, noise output conditionned on syll length only, no gap considered
+data_recorder_v47.h : corresponding .h file
+
+data_recorder_v46_I.cpp : same as v46 but noise output on 50% of catched syllables (random). More convenient for template catch but take care of 200 syllables baseline recording (no noise) each day!!!
+data_recorder_v46_I.h : corresponding .h file
+
+data_recorder_v460_I.cpp : starting from v46 (as of august 2019), for probabilistic noise output for implanted birds. A more modified version of v46. No baseline recording of 200 syllables each day without noise. As of 29.05.2020 uses rms^2 instead of rms with 200 points and is set to CAF
+data_recorder_v460_I.h : corresponding .h file
+
+data_recorder_v461.cpp : starting from v46 as of 29.02.2020 but instead of targetting the syllable+gap, target only the gap
+data_recorder_v461.h : corresponding .h file
+
+data_recorder_v462.cpp : starting from v46 as of 12.03.2020 but no bandpass filtering, do only h filtering (boxcar) on squared amplitude
+data_recorder_v462.h : corresponding .h file
+
+data_recorder_v463.cpp : starting from v46 as of 28.05.2020 but for rms consider not the 200 previous samples but the amplitude. Used to record song for implant and to set the correlation coefficient and possibly to chose right amplitude parameters (threshold, rms trigger...). The file data_recorder_v460_I.cpp has then to be used for actual probabilistic noise output, the parameters figured out by v463 have to be taken from v463 and put into v460_I for the actual experiment. Use Plot_files_rms.py for chosing the right threshold for triggering the file saving. 
+data_recorder_v463.h : corresponding .h file
+
+data_recorder_v041.cpp : starting from v0, see what is written to fifo. 
+data_recorder_v041.h : corresponding .h file
+
+
+data_recorder_v5.cpp : starting from data_recorder_v4.cpp, add additioonal features
+
+data_recorder_v6.cpp : starting from data_recorder_v0.cpp, add only the changes from KZ that pertain to data recording, do not incorporate changes related to output (playback)
+data_recorder_v6.h : related h file
+
+data_recorder_v7.cpp : starting from data_recorder_v4.cpp, add additioonal features: attempt to write to h5 files
+
+data_recorder_v8.cpp : Starting from v5, extend to detect two templates
+
+****************************************************************
+
+29.08.2018
+Spectral Analysis Engine Ready.
+
+
+Begin Analysis.
+
+Analysis Complete.
+
+
+Begin Analysis.
+
+Analysis Complete.
+
+
+Begin Analysis.
+
+Backtrace:
+rtxi[0x80685c2]
+rtxi[0x806863d]
+[0xb77aeb40]
+/lib/i386-linux-gnu/libc.so.6(+0x126db3)[0xb5752db3]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x64e9b)[0xb5ddae9b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5VM_opvv+0x213)[0xb5f6f793]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x64a34)[0xb5ddaa34]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x768a6)[0xb5dec8a6]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5D__select_write+0x2b)[0xb5decc6b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5D__contig_write+0x2b)[0xb5ddbf2b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x70d43)[0xb5de6d43]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5Dwrite+0x14b)[0xb5de721b]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel14startRecordingEx+0x5ff)[0xa786d05f]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel11processDataEv+0x3d2)[0xa786efd2]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel6bounceEPv+0x20)[0xa786f780]
+/lib/i386-linux-gnu/libpthread.so.0(+0x6295)[0xb59db295]
+/lib/i386-linux-gnu/libc.so.6(clone+0x6e)[0xb57130ae]
+QObject::connect: Cannot queue arguments of type 'Qt::WindowStates'
+(Make sure 'Qt::WindowStates' is registered using qRegisterMetaType().)
+Segmentation fault (core dumped)
+
+
+
+
+
+<!-- 
+  This above template is for bug reports. If you have general
+  comments/questions/etc, just ignore/delete it and ask away. 
+--> 
+
+
+<!-- 
+  Tell us the RTXI version and also whether you used the Live CD or compiled
+  from source. 
+-->
+## Basic Information: 
+**RTXI Version: 9e09161d058c127ceabf339c3030447fe62ce1f9** 
+**Installed from Live CD?: no, custom installation**
+
+
+<!-- 
+  Describe what you expected to happen, what actually happened, and what steps
+  will trigger the error 
+-->
+## Error Description: 
+
+I am trying to modify DataRecorder.cpp and DataRecorder.h as in "Use case 2" mentionned in your paper "Hard real-time closed-loop electrophysiology with the Real-Time eXperiment Interface (RTXI)". 
+
+The problem is the following:
+I comment the lines:
+            fifo.write(&token, sizeof(token));
+            fifo.write(data, sizeof(data));
+inside the DataRecorder::Panel::execute() function in data_recorder.cpp file. The excute() function then looks like that:
+// Execute loop
+void DataRecorder::Panel::execute(void)
+{
+
+    if (recording && !counter++)
+        {
+            data_token_t token;
+            double data[channels.size()];
+            size_t n = 0;
+            token.type = SYNC;
+            token.size = channels.size() * sizeof(double);
+            for (RT::List<Channel>::iterator i = channels.begin(), end = channels.end(); i != end; ++i)
+                if (i->block)
+                    data[n++] = i->block->getValue(i->type, i->index);
+            //fifo.write(&token, sizeof(token));
+            //fifo.write(data, sizeof(data));
+        }
+    count++;
+    counter %= downsample_rate;
+}
+
+after a successful recompilation and re-installation of rtxi, I start rtxi, open DataRecorder Panel and do the following:
+Start Recording wait 10 seconds then Stop Recording
+
+then again : 
+
+Start Recording wait 10 seconds then Stop Recording
+
+Now, if I again click on Start Recording, rtxi crashes:
+## Error Message: 
+Backtrace:
+rtxi[0x8068602]
+rtxi[0x806867d]
+[0xb770bb40]
+/lib/i386-linux-gnu/libc.so.6(+0x126db3)[0xb56afdb3]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x64e9b)[0xb5d37e9b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5VM_opvv+0x213)[0xb5ecc793]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x64a34)[0xb5d37a34]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x768a6)[0xb5d498a6]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5D__select_write+0x2b)[0xb5d49c6b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5D__contig_write+0x2b)[0xb5d38f2b]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(+0x70d43)[0xb5d43d43]
+/usr/lib/i386-linux-gnu/libhdf5_serial.so.10(H5Dwrite+0x14b)[0xb5d4421b]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel14startRecordingEx+0x5ff)[0xa8546e1f]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel11processDataEv+0x3ac)[0xa8548d6c]
+/usr/local/lib/rtxi/data_recorder.so(_ZN12DataRecorder5Panel6bounceEPv+0x20)[0xa8549480]
+/lib/i386-linux-gnu/libpthread.so.0(+0x6295)[0xb5938295]
+/lib/i386-linux-gnu/libc.so.6(clone+0x6e)[0xb56700ae]
+QObject::connect: Cannot queue arguments of type 'Qt::WindowStates'
+(Make sure 'Qt::WindowStates' is registered using qRegisterMetaType().)
+Segmentation fault (core dumped)
+
+
+
+**What was supposed to happen?**
+By commenting the lines in the execute() function, I just prevented data to be written to the file. I should be able to Start/Stop Recording as many times as I wish. Isn't it?
+
+**What steps will trigger the error?**
+It seems that execute() function has to write data to the fifo each time it is called. Preventing execute() from writing to the fifo causes an error: is this normal?
+
+Best regards,
+Roman

@@ -59,12 +59,6 @@ public:
      *
      */
     bool isLockFree() const;
-
-    bool tooBig(size_t);
-
-    size_t GetFifoSize();
-
-
 private:
     size_t increment(size_t current_ptr, size_t itemSize) const;
 
